@@ -1,0 +1,16 @@
+{
+  "name": "ledgerflow-addin",
+  "version": "1.0.0",
+  "description": "LedgerFlow Excel Add-in — Aveera LLC",
+  "scripts": {
+    "start:web": "npx http-server . -p 3000 --ssl --cert C:\\Users\\bhara\\.office-addin-dev-certs\\localhost.crt --key C:\\Users\\bhara\\.office-addin-dev-certs\\localhost.key -c-1",
+    "validate": "office-addin-manifest validate manifest.xml",
+    "sideload": "office-addin-debugging start manifest.xml desktop --app excel"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "office-addin-debugging": "latest",
+    "office-addin-manifest": "latest",
+    "http-server": "latest"
+  }
+}

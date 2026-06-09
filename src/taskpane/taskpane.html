@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LedgerFlow</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+  <script src="taskpane.js" defer></script>
+  <style>
+    /* ── Design tokens ─────────────────────────────────────────────── */
+    :root {
+      --ink:       #1A1F2E;
+      --ink-soft:  #4A5168;
+      --border:    #DDE1EA;
+      --surface:   #F7F8FB;
+      --white:     #FFFFFF;
+      --accent:    #2C5FE4;
+      --accent-dk: #1C47C4;
+      --success:   #1B9E5E;
+      --warn:      #D97706;
+      --error:     #C93232;
+      --qbo:       #2CA01C;
+      --xero:      #13B5EA;
+
+      --radius-sm: 6px;
+      --radius:    10px;
+      --font: "Segoe UI", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    .header {
+      background: var(--ink);
+      color: var(--white);
+      padding: 14px 16px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-logo {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; letter-spacing: -0.5px;
+      flex-shrink: 0;
+    }
+    .header-title { font-size: 15px; font-weight: 600; }
+    .header-sub   { font-size: 11px; color: #8C93A8; margin-top: 1px; }
+
+    /* ── Nav tabs ────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--white);
+    }
+    .tab {
+      flex: 1; padding: 10px 4px; text-align: center;
+      font-size: 12px; font-weight: 500; color: var(--ink-soft);
+      cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab:hover:not(.active) { color: var(--ink); }
+
+    /* ── Panels ──────────────────────────────────────────────────────── */
+    .panel { display: none; padding: 16px; }
+    .panel.active { display: block; }
+
+    /* ── Cards ───────────────────────────────────────────────────────── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 12px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .5px;
+      color: var(--ink-soft); margin-bottom: 10px;
+    }
+
+    /* ── Platform buttons ────────────────────────────────────────────── */
+    .platform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .platform-btn {
+      padding: 10px 8px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      cursor: pointer; font-family: var(--font);
+      font-size: 12px; font-weight: 600;
+      display: flex; align-items: center; gap: 7px;
+      transition: border-color .15s, background .15s;
+    }
+    .platform-btn:hover { background: var(--surface); }
+    .platform-btn.connected { border-color: currentColor; }
+    .platform-btn.qbo  { color: var(--qbo); }
+    .platform-btn.xero { color: var(--xero); }
+    .platform-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%; background: var(--border); flex-shrink: 0;
+    }
+    .platform-btn.connected .platform-dot { background: currentColor; }
+
+    /* ── Status badge ────────────────────────────────────────────────── */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 500; padding: 3px 8px;
+      border-radius: 20px; background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .status-badge.ok     { color: var(--success); border-color: #B6E8D3; background: #F0FBF6; }
+    .status-badge.warn   { color: var(--warn);    border-color: #FCD9A0; background: #FFFBF0; }
+    .status-badge.error  { color: var(--error);   border-color: #F5C6C6; background: #FFF5F5; }
+
+    /* ── Form controls ───────────────────────────────────────────────── */
+    label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; }
+    select, input[type="text"] {
+      width: 100%; padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font); font-size: 12px;
+      background: var(--white); color: var(--ink);
+      outline: none;
+    }
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(44,95,228,.12);
+    }
+    .field { margin-bottom: 12px; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────── */
+    .btn {
+      width: 100%; padding: 9px 14px;
+      border-radius: var(--radius-sm);
+      border: none; cursor: pointer;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      transition: background .15s, opacity .15s;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary   { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled)  { background: var(--accent-dk); }
+    .btn-secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: var(--border); }
+    .btn-success  { background: var(--success); color: #fff; }
+    .btn + .btn   { margin-top: 8px; }
+
+    /* ── Validation table ────────────────────────────────────────────── */
+    .val-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .val-table th {
+      text-align: left; padding: 6px 8px;
+      background: var(--surface); font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    .val-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    .val-pass { color: var(--success); font-weight: 600; }
+    .val-fail { color: var(--error);   font-weight: 600; }
+
+    /* ── Progress bar ────────────────────────────────────────────────── */
+    .progress-wrap {
+      background: var(--border); border-radius: 4px;
+      height: 6px; overflow: hidden; margin: 10px 0;
+    }
+    .progress-bar {
+      height: 100%; background: var(--accent);
+      border-radius: 4px; width: 0%;
+      transition: width .3s ease;
+    }
+
+    /* ── Log output ──────────────────────────────────────────────────── */
+    .log {
+      background: #1A1F2E; color: #C8D0E8;
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 11px; line-height: 1.6;
+      max-height: 140px; overflow-y: auto;
+      margin-top: 10px;
+    }
+    .log-line.ok   { color: #6FE0A8; }
+    .log-line.err  { color: #F08080; }
+    .log-line.info { color: #87AAED; }
+
+    /* ── Help text ───────────────────────────────────────────────────── */
+    .help { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+    /* ── Sheet range picker ──────────────────────────────────────────── */
+    .range-row {
+      display: flex; gap: 8px; align-items: flex-end;
+    }
+    .range-row .field { flex: 1; margin: 0; }
+    .range-row .btn   { width: auto; padding: 7px 12px; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">LF</div>
+    <div>
+      <div class="header-title">LedgerFlow</div>
+      <div class="header-sub">Excel → QuickBooks / Xero</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-panel="connect">Connect</button>
+    <button class="tab" data-panel="pull">Pull Data</button>
+    <button class="tab" data-panel="validate">Validate</button>
+    <button class="tab" data-panel="push">Post</button>
+  </div>
+
+  <!-- ── Panel: Connect ─────────────────────────────────────────── -->
+  <div id="panel-connect" class="panel active">
+    <div class="card">
+      <div class="card-title">Accounting Platform</div>
+      <div class="platform-grid">
+        <button class="platform-btn qbo" id="btn-connect-qbo">
+          <span class="platform-dot"></span>QuickBooks
+        </button>
+        <button class="platform-btn xero" id="btn-connect-xero">
+          <span class="platform-dot"></span>Xero
+        </button>
+      </div>
+      <p class="help" style="margin-top:10px;" id="connect-status-msg">No platform connected. Select one to authenticate.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Session</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span>Status</span>
+        <span class="status-badge" id="session-badge">Disconnected</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Company</span>
+        <span id="company-name" style="font-weight:600; font-size:12px;">—</span>
+      </div>
+      <hr class="divider">
+      <button class="btn btn-secondary" id="btn-disconnect" disabled>Disconnect</button>
+    </div>
+  </div>
+
+  <!-- ── Panel: Pull Data ───────────────────────────────────────── -->
+  <div id="panel-pull" class="panel">
+    <div class="card">
+      <div class="card-title">Pull Master Data into Sheet</div>
+      <div class="field">
+        <label for="pull-type">Data Type</label>
+        <select id="pull-type">
+          <option value="">Select…</option>
+          <option value="accounts">Chart of Accounts</option>
+          <option value="classes">Classes / Locations</option>
+          <option value="vendors">Vendors</option>
+          <option value="customers">Customers</option>
+          <option value="departments">Departments</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="pull-sheet">Destination Sheet Name</label>
+        <input type="text" id="pull-sheet" placeholder="e.g. Accounts_Ref" />
+      </div>
+      <button class="btn btn-primary" id="btn-pull" disabled>Pull into Excel</button>
+      <p class="help" id="pull-status"></p>
+    </div>
+  </div>
+
+  <!-- ── Panel: Validate ───────────────────────────────────────── -->
+  <div id="panel-validate" class="panel">
+    <div class="card">
+      <div class="card-title">Journal Entry Range</div>
+      <div class="range-row">
+        <div class="field">
+          <label for="je-range">Sheet range</label>
+          <input type="text" id="je-range" placeholder="e.g. JE_Data!A2:G200" />
+        </div>
+        <button class="btn btn-secondary" id="btn-detect-range">Auto</button>
+      </div>
+      <p class="help">Select your journal-entry rows, or click Auto to detect.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Validation Results</div>
+      <table class="val-table" id="val-table">
+        <thead>
+          <tr><th>Check</th><th>Result</th><th>Detail</th></tr>
+        </thead>
+        <tbody id="val-body">
+          <tr><td colspan="3" style="color:var(--ink-soft); padding:12px 8px;">Run validation to see results.</td></tr>
+        </tbody>
+      </table>
+      <button class="btn btn-secondary" id="btn-validate" style="margin-top:12px;">Run Validation</button>
+    </div>
+  </div>
+
+  <!-- ── Panel: Post ────────────────────────────────────────────── -->
+  <div id="panel-push" class="panel">
+    <div class="card">
+      <div class="card-title">Post Journal Entries</div>
+      <div class="field">
+        <label for="push-range">Source Range</label>
+        <input type="text" id="push-range" placeholder="e.g. JE_Data!A2:G200" />
+      </div>
+      <div class="field">
+        <label for="push-type">Transaction Type</label>
+        <select id="push-type">
+          <option value="journal">Journal Entry</option>
+          <option value="vendor_bill">Vendor Bill</option>
+          <option value="payroll">Payroll Journal</option>
+        </select>
+      </div>
+
+      <div id="push-validation-warning" class="status-badge warn" style="margin-bottom:12px; display:none;">
+        ⚠ Validate entries before posting.
+      </div>
+
+      <button class="btn btn-success" id="btn-push" disabled>Post to Platform</button>
+      <p class="help" id="push-help">Complete validation before posting.</p>
+
+      <div class="progress-wrap" id="progress-wrap" style="display:none;">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+
+      <div class="log" id="push-log" style="display:none;"></div>
+    </div>
+  </div>
+
+</body>
+</html>
