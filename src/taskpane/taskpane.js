@@ -5,6 +5,8 @@
 
 "use strict";
 
+const API_BASE_URL = "https://ledgerflow-addin.vercel.app";
+
 const state = {
   platform: null,
   connected: false,
@@ -41,7 +43,25 @@ function initConnectPanel() {
 }
 
 async function startOAuth(platform) {
-  simulateConnection(platform);
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/auth?platform=${platform}`
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Connection failed");
+    }
+
+    setConnected(
+      platform,
+      data.companyName,
+      data.accessToken
+    );
+  } catch (err) {
+    showConnectError(err.message);
+  }
 }
 
 function simulateConnection(platform) {
@@ -89,6 +109,11 @@ function disconnect() {
   document.getElementById("btn-connect-qbo").classList.remove("connected");
   document.getElementById("btn-connect-xero").classList.remove("connected");
 }
+function showConnectError(message) {
+  document.getElementById(
+    "connect-status-msg"
+  ).textContent = `Error: ${message}`;
+}
 
 function initPullPanel() {
   document.getElementById("btn-pull").addEventListener("click", pullMasterData);
@@ -109,7 +134,19 @@ async function pullMasterData() {
   status.textContent = "Fetching from platform…";
 
   try {
-    const data = getDemoMasterData(type);
+   const res = await fetch(
+  `${API_BASE_URL}/api/masterdata?platform=${state.platform}&type=${type}`
+);
+
+const payload = await res.json();
+
+if (!res.ok) {
+  throw new Error(
+    payload.error || "Failed to pull master data"
+  );
+}
+
+const data = payload.data;
 
     await Excel.run(async (ctx) => {
       let sheet = ctx.workbook.worksheets.getItemOrNullObject(sheetName);
