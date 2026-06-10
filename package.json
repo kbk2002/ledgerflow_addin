@@ -7,7 +7,9 @@
     "validate": "office-addin-manifest validate manifest.xml",
     "sideload": "office-addin-debugging start manifest.xml desktop --app excel"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  },
   "devDependencies": {
     "office-addin-debugging": "latest",
     "office-addin-manifest": "latest",
