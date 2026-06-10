@@ -418,6 +418,12 @@ for (let i = 0; i < rows.length; i += chunkSize) {
     bar.style.width = "100%";
 
     await markRowsPosted(rangeAddr, rows.length, true);
+     await writeAuditLog({
+  platform: state.platform,
+  transactionType: txnType,
+  rowsPosted: rows.length,
+  status: "Success"
+});
   } catch (err) {
     appendLog("err", `Failed: ${err.message}`);
   }
@@ -486,7 +492,42 @@ function appendLog(type, text) {
   log.appendChild(line);
   log.scrollTop = log.scrollHeight;
 }
+async function writeAuditLog({ platform, transactionType, rowsPosted, status }) {
+  await Excel.run(async (ctx) => {
+    let sheet = ctx.workbook.worksheets.getItemOrNullObject("LedgerFlow_Log");
+    sheet.load("name");
+    await ctx.sync();
 
+    if (sheet.isNullObject) {
+      sheet = ctx.workbook.worksheets.add("LedgerFlow_Log");
+
+      const headerRange = sheet.getRange("A1:E1");
+      headerRange.values = [["Timestamp", "Platform", "Transaction Type", "Rows Posted", "Status"]];
+      headerRange.format.font.bold = true;
+      headerRange.format.fill.color = "#1A1F2E";
+      headerRange.format.font.color = "#FFFFFF";
+    }
+
+    const usedRange = sheet.getUsedRangeOrNullObject();
+    usedRange.load("rowCount");
+    await ctx.sync();
+
+    const nextRow = usedRange.isNullObject ? 1 : usedRange.rowCount;
+
+    const logRange = sheet.getRangeByIndexes(nextRow, 0, 1, 5);
+    logRange.values = [[
+      new Date().toLocaleString(),
+      platform,
+      transactionType,
+      rowsPosted,
+      status
+    ]];
+
+    sheet.getUsedRange().format.autofitColumns();
+
+    await ctx.sync();
+  });
+}
 function timestamp() {
   return new Date().toLocaleTimeString("en-US", { hour12: false });
 }
