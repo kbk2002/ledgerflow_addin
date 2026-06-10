@@ -383,6 +383,12 @@ async function postEntries() {
   bar.style.width = "0%";
 
   try {
+     const alreadyPosted = await hasPostedRows(rangeAddr);
+
+if (alreadyPosted) {
+  appendLog("err", "Some selected rows are already marked as Posted. Posting blocked.");
+  return;
+}
     const rows = await readRangeValues(rangeAddr);
     appendLog("info", `${rows.length} row(s) to post as ${txnType}…`);
 
@@ -526,6 +532,30 @@ async function writeAuditLog({ platform, transactionType, rowsPosted, status }) 
     sheet.getUsedRange().format.autofitColumns();
 
     await ctx.sync();
+  });
+}
+async function hasPostedRows(rangeAddr) {
+  return await Excel.run(async (ctx) => {
+    const { sheetName, address } = parseRangeAddress(rangeAddr);
+    const sheet = ctx.workbook.worksheets.getItem(sheetName);
+    const range = sheet.getRange(address);
+
+    range.load("rowIndex, columnIndex, rowCount, columnCount");
+    await ctx.sync();
+
+    const statusCol = range.columnIndex + range.columnCount;
+    const startRow = range.rowIndex + 1;
+    const dataRowCount = Math.max(range.rowCount - 1, 0);
+
+    if (dataRowCount === 0) return false;
+
+    const statusRange = sheet.getRangeByIndexes(startRow, statusCol, dataRowCount, 1);
+    statusRange.load("values");
+    await ctx.sync();
+
+    return statusRange.values.some((row) =>
+      String(row[0] || "").toLowerCase() === "posted"
+    );
   });
 }
 function timestamp() {
