@@ -325,6 +325,22 @@ async function validateJournalEntries(rangeAddr) {
       detail: blankAccounts === 0 ? "All accounts present" : `${blankAccounts} blank account(s)`,
     });
 
+    const mappedAccounts = await getMappedAccounts();
+
+    const unmappedAccounts = values.filter((row) => {
+      const account = String(row[2] || "").trim();
+      return account && !mappedAccounts.includes(account);
+    });
+
+    checks.push({
+      name: "Account mapping validation",
+      pass: unmappedAccounts.length === 0,
+      detail:
+        unmappedAccounts.length === 0
+          ? "All accounts are mapped"
+          : `${unmappedAccounts.length} unmapped account row(s)`,
+    });
+
     if (colCount >= 5) {
       const totalDebit = values.reduce((sum, row) => sum + (parseFloat(row[3]) || 0), 0);
       const totalCredit = values.reduce((sum, row) => sum + (parseFloat(row[4]) || 0), 0);
@@ -701,6 +717,27 @@ async function highlightValidationErrors(rangeAddr) {
     }
 
     await ctx.sync();
+  });
+}
+async function getMappedAccounts() {
+  return await Excel.run(async (ctx) => {
+    const sheet = ctx.workbook.worksheets.getItemOrNullObject("LedgerFlow_Mappings");
+
+    sheet.load("name");
+    await ctx.sync();
+
+    if (sheet.isNullObject) {
+      return [];
+    }
+
+    const range = sheet.getUsedRange();
+    range.load("values");
+    await ctx.sync();
+
+    return range.values
+      .slice(1)
+      .map((row) => String(row[0] || "").trim())
+      .filter(Boolean);
   });
 }
 function timestamp() {
