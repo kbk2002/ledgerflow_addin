@@ -226,6 +226,7 @@
     <button class="tab" data-panel="validate">Validate</button>
 <button class="tab" data-panel="mapping">Mappings</button>
 <button class="tab" data-panel="templates">Templates</button>
+<button class="tab" data-panel="connections">Connections</button>
 <button class="tab" data-panel="push">Post</button>
   </div>
 
@@ -346,6 +347,37 @@
     </button>
 
     <p class="help" id="template-status"></p>
+  </div>
+</div>
+  <div id="panel-connections" class="panel">
+  <div class="card">
+    <div class="card-title">Connection Manager</div>
+
+    <table class="val-table">
+      <thead>
+        <tr>
+          <th>Platform</th>
+          <th>Status</th>
+          <th>Company</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>QuickBooks</td>
+          <td id="conn-qbo-status">Disconnected</td>
+          <td id="conn-qbo-company">—</td>
+        </tr>
+        <tr>
+          <td>Xero</td>
+          <td id="conn-xero-status">Disconnected</td>
+          <td id="conn-xero-company">—</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="help" id="conn-last-sync" style="margin-top:10px;">
+      Last sync: —
+    </p>
   </div>
 </div>
   <!-- ── Panel: Post ────────────────────────────────────────────── -->
