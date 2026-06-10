@@ -10,7 +10,125 @@ const API_BASE_URL = "https://ledgerflow-addin.vercel.app";
 const state = {
   platform: null,
   connected: false,
-  companyName: null,
+  companyName: null,async function validateJournalEntries(rangeAddr) {
+  return await Excel.run(async (ctx) => {
+    const { sheetName, address } = parseRangeAddress(rangeAddr);
+    const sheet = ctx.workbook.worksheets.getItem(sheetName);
+    const range = sheet.getRange(address);
+
+    range.load("values, rowIndex");
+    await ctx.sync();
+
+    const rawRows = range.values.filter((r) => r.some((c) => c !== ""));
+    const checks = [];
+    const rowErrors = [];
+
+    checks.push({
+      name: "Has data rows",
+      pass: rawRows.length > 1,
+      detail: `${Math.max(rawRows.length - 1, 0)} data row(s) found`,
+    });
+
+    if (rawRows.length === 0) return checks;
+
+    const headers = rawRows[0].map((h) => String(h || "").trim().toLowerCase());
+    const requiredHeaders = ["date", "memo", "account", "debit", "credit"];
+    const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h));
+
+    checks.push({
+      name: "Required headers",
+      pass: missingHeaders.length === 0,
+      detail:
+        missingHeaders.length === 0
+          ? "Date, Memo, Account, Debit, Credit found"
+          : `Missing: ${missingHeaders.join(", ")}`,
+    });
+
+    if (missingHeaders.length > 0) return checks;
+
+    const idx = {
+      date: headers.indexOf("date"),
+      memo: headers.indexOf("memo"),
+      account: headers.indexOf("account"),
+      debit: headers.indexOf("debit"),
+      credit: headers.indexOf("credit"),
+    };
+
+    const dataRows = rawRows.slice(1);
+
+    dataRows.forEach((row, index) => {
+      const excelRowNumber = range.rowIndex + index + 2;
+
+      const date = row[idx.date];
+      const account = row[idx.account];
+      const debitRaw = row[idx.debit];
+      const creditRaw = row[idx.credit];
+
+      const debit = parseFloat(debitRaw) || 0;
+      const credit = parseFloat(creditRaw) || 0;
+
+      if (!date) {
+        rowErrors.push(`Row ${excelRowNumber}: Date is blank`);
+      }
+
+      if (!account) {
+        rowErrors.push(`Row ${excelRowNumber}: Account is blank`);
+      }
+
+      if (debitRaw !== "" && debitRaw !== null && isNaN(parseFloat(debitRaw))) {
+        rowErrors.push(`Row ${excelRowNumber}: Debit is not numeric`);
+      }
+
+      if (creditRaw !== "" && creditRaw !== null && isNaN(parseFloat(creditRaw))) {
+        rowErrors.push(`Row ${excelRowNumber}: Credit is not numeric`);
+      }
+
+      if (debit > 0 && credit > 0) {
+        rowErrors.push(`Row ${excelRowNumber}: Row has both debit and credit`);
+      }
+
+      if (debit === 0 && credit === 0) {
+        rowErrors.push(`Row ${excelRowNumber}: Both debit and credit are zero`);
+      }
+    });
+
+    checks.push({
+      name: "Row-level validation",
+      pass: rowErrors.length === 0,
+      detail: rowErrors.length === 0 ? "No row-level errors" : `${rowErrors.length} issue(s) found`,
+    });
+
+    const totalDebit = dataRows.reduce((s, r) => s + (parseFloat(r[idx.debit]) || 0), 0);
+    const totalCredit = dataRows.reduce((s, r) => s + (parseFloat(r[idx.credit]) || 0), 0);
+    const balanced = Math.abs(totalDebit - totalCredit) < 0.005;
+
+    checks.push({
+      name: "Debits = Credits",
+      pass: balanced,
+      detail: balanced
+        ? `Both sides: $${totalDebit.toFixed(2)}`
+        : `Debit $${totalDebit.toFixed(2)} vs Credit $${totalCredit.toFixed(2)}`,
+    });
+
+    rowErrors.slice(0, 10).forEach((err) => {
+      checks.push({
+        name: "Row Error",
+        pass: false,
+        detail: err,
+      });
+    });
+
+    if (rowErrors.length > 10) {
+      checks.push({
+        name: "More Errors",
+        pass: false,
+        detail: `${rowErrors.length - 10} more issue(s) not shown`,
+      });
+    }
+
+    return checks;
+  });
+}
   accessToken: null,
   validationPassed: false,
 };
@@ -278,11 +396,12 @@ async function validateJournalEntries(rangeAddr) {
     const sheet = ctx.workbook.worksheets.getItem(sheetName);
     const range = sheet.getRange(address);
 
-    range.load("values");
+    range.load("values, rowIndex");
     await ctx.sync();
 
     const rawRows = range.values.filter((r) => r.some((c) => c !== ""));
     const checks = [];
+    const rowErrors = [];
 
     checks.push({
       name: "Has data rows",
@@ -294,7 +413,6 @@ async function validateJournalEntries(rangeAddr) {
 
     const headers = rawRows[0].map((h) => String(h || "").trim().toLowerCase());
     const requiredHeaders = ["date", "memo", "account", "debit", "credit"];
-
     const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h));
 
     checks.push({
@@ -318,46 +436,46 @@ async function validateJournalEntries(rangeAddr) {
 
     const dataRows = rawRows.slice(1);
 
-    const blankDates = dataRows.filter((r) => !r[idx.date]).length;
-    checks.push({
-      name: "No blank dates",
-      pass: blankDates === 0,
-      detail: blankDates === 0 ? "All dates present" : `${blankDates} blank date(s)`,
+    dataRows.forEach((row, index) => {
+      const excelRowNumber = range.rowIndex + index + 2;
+
+      const date = row[idx.date];
+      const account = row[idx.account];
+      const debitRaw = row[idx.debit];
+      const creditRaw = row[idx.credit];
+
+      const debit = parseFloat(debitRaw) || 0;
+      const credit = parseFloat(creditRaw) || 0;
+
+      if (!date) {
+        rowErrors.push(`Row ${excelRowNumber}: Date is blank`);
+      }
+
+      if (!account) {
+        rowErrors.push(`Row ${excelRowNumber}: Account is blank`);
+      }
+
+      if (debitRaw !== "" && debitRaw !== null && isNaN(parseFloat(debitRaw))) {
+        rowErrors.push(`Row ${excelRowNumber}: Debit is not numeric`);
+      }
+
+      if (creditRaw !== "" && creditRaw !== null && isNaN(parseFloat(creditRaw))) {
+        rowErrors.push(`Row ${excelRowNumber}: Credit is not numeric`);
+      }
+
+      if (debit > 0 && credit > 0) {
+        rowErrors.push(`Row ${excelRowNumber}: Row has both debit and credit`);
+      }
+
+      if (debit === 0 && credit === 0) {
+        rowErrors.push(`Row ${excelRowNumber}: Both debit and credit are zero`);
+      }
     });
 
-    const blankAccounts = dataRows.filter((r) => !r[idx.account]).length;
     checks.push({
-      name: "No blank account codes",
-      pass: blankAccounts === 0,
-      detail: blankAccounts === 0 ? "All accounts present" : `${blankAccounts} blank account(s)`,
-    });
-
-    const invalidAmounts = dataRows.filter((r) => {
-      const debit = r[idx.debit];
-      const credit = r[idx.credit];
-
-      return (
-        (debit !== "" && debit !== null && isNaN(parseFloat(debit))) ||
-        (credit !== "" && credit !== null && isNaN(parseFloat(credit)))
-      );
-    }).length;
-
-    checks.push({
-      name: "Valid debit/credit values",
-      pass: invalidAmounts === 0,
-      detail: invalidAmounts === 0 ? "All amounts are numeric" : `${invalidAmounts} invalid amount row(s)`,
-    });
-
-    const bothDebitCredit = dataRows.filter((r) => {
-      const debit = parseFloat(r[idx.debit]) || 0;
-      const credit = parseFloat(r[idx.credit]) || 0;
-      return debit > 0 && credit > 0;
-    }).length;
-
-    checks.push({
-      name: "No row has both debit and credit",
-      pass: bothDebitCredit === 0,
-      detail: bothDebitCredit === 0 ? "Rows are clean" : `${bothDebitCredit} row(s) have both debit and credit`,
+      name: "Row-level validation",
+      pass: rowErrors.length === 0,
+      detail: rowErrors.length === 0 ? "No row-level errors" : `${rowErrors.length} issue(s) found`,
     });
 
     const totalDebit = dataRows.reduce((s, r) => s + (parseFloat(r[idx.debit]) || 0), 0);
@@ -371,6 +489,22 @@ async function validateJournalEntries(rangeAddr) {
         ? `Both sides: $${totalDebit.toFixed(2)}`
         : `Debit $${totalDebit.toFixed(2)} vs Credit $${totalCredit.toFixed(2)}`,
     });
+
+    rowErrors.slice(0, 10).forEach((err) => {
+      checks.push({
+        name: "Row Error",
+        pass: false,
+        detail: err,
+      });
+    });
+
+    if (rowErrors.length > 10) {
+      checks.push({
+        name: "More Errors",
+        pass: false,
+        detail: `${rowErrors.length - 10} more issue(s) not shown`,
+      });
+    }
 
     return checks;
   });
