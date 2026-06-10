@@ -744,6 +744,12 @@ for (let i = 0; i < rows.length; i += chunkSize) {
   rowsPosted: rows.length,
   status: "Success"
 });
+     await savePostingLogToCloud({
+  platform: state.platform,
+  transactionType: txnType,
+  rowsPosted: rows.length,
+  status: "Success"
+});
   } catch (err) {
     appendLog("err", `Failed: ${err.message}`);
   }
@@ -994,6 +1000,32 @@ function updateConnectionManager() {
 
   if (lastSync) {
     lastSync.textContent = `Last sync: ${new Date().toLocaleString()}`;
+  }
+}
+async function savePostingLogToCloud({ platform, transactionType, rowsPosted, status }) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/logs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        platform,
+        transaction_type: transactionType,
+        rows_posted: rowsPosted,
+        status
+      })
+    });
+
+    const payload = await res.json();
+
+    if (!res.ok) {
+      throw new Error(payload.error || "Failed to save cloud log");
+    }
+
+    appendLog("ok", "Cloud log saved to Supabase.");
+  } catch (err) {
+    appendLog("err", `Cloud log failed: ${err.message}`);
   }
 }
 function timestamp() {
