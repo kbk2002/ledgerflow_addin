@@ -254,8 +254,16 @@ async function runValidation() {
   tbody.innerHTML = "<tr><td colspan='3'>Running…</td></tr>";
 
   try {
-    const results = await validateJournalEntries(rangeAddr);
-    renderValidationResults(results);
+await clearValidationHighlights(rangeAddr);
+
+const results = await validateJournalEntries(rangeAddr);
+renderValidationResults(results);
+
+const hasErrors = results.some((r) => !r.pass);
+
+if (hasErrors) {
+  await highlightValidationErrors(rangeAddr);
+}
 
     state.validationPassed = results.every((r) => r.pass);
 
@@ -556,6 +564,81 @@ async function hasPostedRows(rangeAddr) {
     return statusRange.values.some((row) =>
       String(row[0] || "").toLowerCase() === "posted"
     );
+  });
+}
+async function clearValidationHighlights(rangeAddr) {
+  await Excel.run(async (ctx) => {
+    const { sheetName, address } = parseRangeAddress(rangeAddr);
+    const sheet = ctx.workbook.worksheets.getItem(sheetName);
+    const range = sheet.getRange(address);
+
+    range.format.fill.clear();
+
+    await ctx.sync();
+  });
+}
+async function highlightValidationErrors(rangeAddr) {
+  await Excel.run(async (ctx) => {
+    const { sheetName, address } = parseRangeAddress(rangeAddr);
+    const sheet = ctx.workbook.worksheets.getItem(sheetName);
+    const range = sheet.getRange(address);
+
+    range.load("values, rowIndex, columnIndex");
+    await ctx.sync();
+
+    const rows = range.values;
+    if (rows.length < 2) return;
+
+    const headers = rows[0].map((h) => String(h || "").trim().toLowerCase());
+
+    const idx = {
+      date: headers.indexOf("date"),
+      account: headers.indexOf("account"),
+      debit: headers.indexOf("debit"),
+      credit: headers.indexOf("credit"),
+    };
+
+    const errorColor = "#F8D7DA";
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+
+      const date = row[idx.date];
+      const account = row[idx.account];
+      const debitRaw = row[idx.debit];
+      const creditRaw = row[idx.credit];
+
+      if (!date && idx.date >= 0) {
+        sheet.getCell(range.rowIndex + i, range.columnIndex + idx.date).format.fill.color = errorColor;
+      }
+
+      if (!account && idx.account >= 0) {
+        sheet.getCell(range.rowIndex + i, range.columnIndex + idx.account).format.fill.color = errorColor;
+      }
+
+      if (idx.debit >= 0 && debitRaw !== "" && debitRaw !== null && isNaN(parseFloat(debitRaw))) {
+        sheet.getCell(range.rowIndex + i, range.columnIndex + idx.debit).format.fill.color = errorColor;
+      }
+
+      if (idx.credit >= 0 && creditRaw !== "" && creditRaw !== null && isNaN(parseFloat(creditRaw))) {
+        sheet.getCell(range.rowIndex + i, range.columnIndex + idx.credit).format.fill.color = errorColor;
+      }
+
+      const debit = parseFloat(debitRaw) || 0;
+      const credit = parseFloat(creditRaw) || 0;
+
+      if (debit > 0 && credit > 0) {
+        if (idx.debit >= 0) sheet.getCell(range.rowIndex + i, range.columnIndex + idx.debit).format.fill.color = errorColor;
+        if (idx.credit >= 0) sheet.getCell(range.rowIndex + i, range.columnIndex + idx.credit).format.fill.color = errorColor;
+      }
+
+      if (debit === 0 && credit === 0) {
+        if (idx.debit >= 0) sheet.getCell(range.rowIndex + i, range.columnIndex + idx.debit).format.fill.color = errorColor;
+        if (idx.credit >= 0) sheet.getCell(range.rowIndex + i, range.columnIndex + idx.credit).format.fill.color = errorColor;
+      }
+    }
+
+    await ctx.sync();
   });
 }
 function timestamp() {
