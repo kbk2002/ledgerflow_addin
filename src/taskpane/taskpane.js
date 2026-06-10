@@ -88,8 +88,13 @@ function setConnected(platform, companyName, token) {
   if (platform === "qbo") document.getElementById("btn-connect-qbo").classList.add("connected");
   if (platform === "xero") document.getElementById("btn-connect-xero").classList.add("connected");
 
-  document.getElementById("btn-pull").disabled = false;
-  document.getElementById("btn-push").disabled = false;
+document.getElementById("btn-pull").disabled = false;
+document.getElementById("btn-push").disabled = false;
+
+const refreshBtn = document.getElementById("btn-refresh-all");
+if (refreshBtn) {
+  refreshBtn.disabled = false;
+}
 }
 
 function disconnect() {
@@ -104,9 +109,13 @@ function disconnect() {
   document.getElementById("company-name").textContent = "—";
   document.getElementById("connect-status-msg").textContent = "No platform connected. Select one to authenticate.";
   document.getElementById("btn-disconnect").disabled = true;
-  document.getElementById("btn-pull").disabled = true;
-  document.getElementById("btn-push").disabled = true;
+document.getElementById("btn-pull").disabled = true;
+document.getElementById("btn-push").disabled = true;
 
+const refreshBtn = document.getElementById("btn-refresh-all");
+if (refreshBtn) {
+  refreshBtn.disabled = true;
+}
   document.getElementById("btn-connect-qbo").classList.remove("connected");
   document.getElementById("btn-connect-xero").classList.remove("connected");
 }
@@ -118,6 +127,11 @@ function showConnectError(message) {
 
 function initPullPanel() {
   document.getElementById("btn-pull").addEventListener("click", pullMasterData);
+
+  const refreshBtn = document.getElementById("btn-refresh-all");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", refreshAllReferenceData);
+  }
 }
 
 async function pullMasterData() {
@@ -224,7 +238,77 @@ function getDemoMasterData(type) {
 
   return demos[type] || [];
 }
+async function writeDataToSheet(sheetName, data) {
+  await Excel.run(async (ctx) => {
+    let sheet = ctx.workbook.worksheets.getItemOrNullObject(sheetName);
+    sheet.load("name");
+    await ctx.sync();
 
+    if (sheet.isNullObject) {
+      sheet = ctx.workbook.worksheets.add(sheetName);
+    } else {
+      const usedRange = sheet.getUsedRangeOrNullObject();
+      usedRange.load("address");
+      await ctx.sync();
+
+      if (!usedRange.isNullObject) {
+        usedRange.clear();
+      }
+    }
+
+    if (!data || data.length === 0) {
+      return;
+    }
+
+    const headers = Object.keys(data[0]);
+    const rows = data.map((row) => headers.map((h) => row[h] ?? ""));
+
+    const headerRange = sheet.getRange(`A1:${colLetter(headers.length)}1`);
+    headerRange.values = [headers];
+    headerRange.format.font.bold = true;
+    headerRange.format.fill.color = "#1A1F2E";
+    headerRange.format.font.color = "#FFFFFF";
+
+    const dataRange = sheet.getRange(`A2:${colLetter(headers.length)}${rows.length + 1}`);
+    dataRange.values = rows;
+
+    sheet.getUsedRange().format.autofitColumns();
+
+    await ctx.sync();
+  });
+}
+async function refreshAllReferenceData() {
+  if (!state.connected) return;
+
+  const status = document.getElementById("pull-status");
+  status.textContent = "Refreshing all reference data…";
+
+  const datasets = [
+    { type: "accounts", sheetName: "Accounts_Ref" },
+    { type: "vendors", sheetName: "Vendors_Ref" },
+    { type: "customers", sheetName: "Customers_Ref" }
+  ];
+
+  try {
+    for (const item of datasets) {
+      const res = await fetch(
+        `${API_BASE_URL}/api/masterdata?platform=${state.platform}&type=${item.type}`
+      );
+
+      const payload = await res.json();
+
+      if (!res.ok) {
+        throw new Error(payload.error || `Failed to refresh ${item.type}`);
+      }
+
+      await writeDataToSheet(item.sheetName, payload.data);
+    }
+
+    status.textContent = "✓ Refreshed Accounts, Vendors, and Customers.";
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+  }
+}
 function initValidatePanel() {
   document.getElementById("btn-detect-range").addEventListener("click", detectRange);
   document.getElementById("btn-validate").addEventListener("click", runValidation);
