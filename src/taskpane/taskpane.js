@@ -96,8 +96,9 @@ const refreshBtn = document.getElementById("btn-refresh-all");
 if (refreshBtn) {
   refreshBtn.disabled = false;
 }
+   updateConnectionManager();
 }
-updateConnectionManager();
+
 
 function disconnect() {
   state.platform = null;
@@ -120,8 +121,9 @@ if (refreshBtn) {
 }
   document.getElementById("btn-connect-qbo").classList.remove("connected");
   document.getElementById("btn-connect-xero").classList.remove("connected");
-}
 updateConnectionManager();
+
+}
 function showConnectError(message) {
   document.getElementById(
     "connect-status-msg"
