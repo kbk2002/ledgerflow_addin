@@ -224,8 +224,9 @@
     <button class="tab active" data-panel="connect">Connect</button>
     <button class="tab" data-panel="pull">Pull Data</button>
     <button class="tab" data-panel="validate">Validate</button>
-      <button class="tab" data-panel="mapping">Mappings</button>
-    <button class="tab" data-panel="push">Post</button>
+<button class="tab" data-panel="mapping">Mappings</button>
+<button class="tab" data-panel="templates">Templates</button>
+<button class="tab" data-panel="push">Post</button>
   </div>
 
   <!-- ── Panel: Connect ─────────────────────────────────────────── -->
@@ -326,6 +327,25 @@
     </button>
 
     <p class="help" id="mapping-status"></p>
+  </div>
+</div>
+  <div id="panel-templates" class="panel">
+  <div class="card">
+    <div class="card-title">Template Library</div>
+
+    <button class="btn btn-primary" id="btn-journal-template">
+      Create Journal Entry Template
+    </button>
+
+    <button class="btn btn-secondary" id="btn-payroll-template">
+      Create Payroll Template
+    </button>
+
+    <button class="btn btn-secondary" id="btn-vendor-template">
+      Create Vendor Bill Template
+    </button>
+
+    <p class="help" id="template-status"></p>
   </div>
 </div>
   <!-- ── Panel: Post ────────────────────────────────────────────── -->
