@@ -281,54 +281,96 @@ async function validateJournalEntries(rangeAddr) {
     range.load("values");
     await ctx.sync();
 
-    const values = range.values.filter((r) => r.some((c) => c !== ""));
+    const rawRows = range.values.filter((r) => r.some((c) => c !== ""));
     const checks = [];
 
     checks.push({
       name: "Has data rows",
-      pass: values.length > 0,
-      detail: `${values.length} row(s) found`,
+      pass: rawRows.length > 1,
+      detail: `${Math.max(rawRows.length - 1, 0)} data row(s) found`,
     });
 
-    if (values.length === 0) return checks;
+    if (rawRows.length === 0) return checks;
 
-    const colCount = values[0].length;
+    const headers = rawRows[0].map((h) => String(h || "").trim().toLowerCase());
+    const requiredHeaders = ["date", "memo", "account", "debit", "credit"];
+
+    const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h));
 
     checks.push({
-      name: "Minimum columns (≥5)",
-      pass: colCount >= 5,
-      detail: `${colCount} column(s) detected`,
+      name: "Required headers",
+      pass: missingHeaders.length === 0,
+      detail:
+        missingHeaders.length === 0
+          ? "Date, Memo, Account, Debit, Credit found"
+          : `Missing: ${missingHeaders.join(", ")}`,
     });
 
-    const blankDates = values.filter((r) => !r[0]).length;
+    if (missingHeaders.length > 0) return checks;
 
+    const idx = {
+      date: headers.indexOf("date"),
+      memo: headers.indexOf("memo"),
+      account: headers.indexOf("account"),
+      debit: headers.indexOf("debit"),
+      credit: headers.indexOf("credit"),
+    };
+
+    const dataRows = rawRows.slice(1);
+
+    const blankDates = dataRows.filter((r) => !r[idx.date]).length;
     checks.push({
       name: "No blank dates",
       pass: blankDates === 0,
       detail: blankDates === 0 ? "All dates present" : `${blankDates} blank date(s)`,
     });
 
-    const blankAccounts = values.filter((r) => !r[2]).length;
-
+    const blankAccounts = dataRows.filter((r) => !r[idx.account]).length;
     checks.push({
       name: "No blank account codes",
       pass: blankAccounts === 0,
       detail: blankAccounts === 0 ? "All accounts present" : `${blankAccounts} blank account(s)`,
     });
 
-    if (colCount >= 5) {
-      const totalDebit = values.reduce((sum, row) => sum + (parseFloat(row[3]) || 0), 0);
-      const totalCredit = values.reduce((sum, row) => sum + (parseFloat(row[4]) || 0), 0);
-      const balanced = Math.abs(totalDebit - totalCredit) < 0.005;
+    const invalidAmounts = dataRows.filter((r) => {
+      const debit = r[idx.debit];
+      const credit = r[idx.credit];
 
-      checks.push({
-        name: "Debits = Credits",
-        pass: balanced,
-        detail: balanced
-          ? `Both sides: $${totalDebit.toFixed(2)}`
-          : `Debit $${totalDebit.toFixed(2)} vs Credit $${totalCredit.toFixed(2)}`,
-      });
-    }
+      return (
+        (debit !== "" && debit !== null && isNaN(parseFloat(debit))) ||
+        (credit !== "" && credit !== null && isNaN(parseFloat(credit)))
+      );
+    }).length;
+
+    checks.push({
+      name: "Valid debit/credit values",
+      pass: invalidAmounts === 0,
+      detail: invalidAmounts === 0 ? "All amounts are numeric" : `${invalidAmounts} invalid amount row(s)`,
+    });
+
+    const bothDebitCredit = dataRows.filter((r) => {
+      const debit = parseFloat(r[idx.debit]) || 0;
+      const credit = parseFloat(r[idx.credit]) || 0;
+      return debit > 0 && credit > 0;
+    }).length;
+
+    checks.push({
+      name: "No row has both debit and credit",
+      pass: bothDebitCredit === 0,
+      detail: bothDebitCredit === 0 ? "Rows are clean" : `${bothDebitCredit} row(s) have both debit and credit`,
+    });
+
+    const totalDebit = dataRows.reduce((s, r) => s + (parseFloat(r[idx.debit]) || 0), 0);
+    const totalCredit = dataRows.reduce((s, r) => s + (parseFloat(r[idx.credit]) || 0), 0);
+    const balanced = Math.abs(totalDebit - totalCredit) < 0.005;
+
+    checks.push({
+      name: "Debits = Credits",
+      pass: balanced,
+      detail: balanced
+        ? `Both sides: $${totalDebit.toFixed(2)}`
+        : `Debit $${totalDebit.toFixed(2)} vs Credit $${totalCredit.toFixed(2)}`,
+    });
 
     return checks;
   });
