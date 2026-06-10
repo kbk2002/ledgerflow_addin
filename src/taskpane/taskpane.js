@@ -97,6 +97,7 @@ if (refreshBtn) {
   refreshBtn.disabled = false;
 }
 }
+updateConnectionManager();
 
 function disconnect() {
   state.platform = null;
@@ -120,6 +121,7 @@ if (refreshBtn) {
   document.getElementById("btn-connect-qbo").classList.remove("connected");
   document.getElementById("btn-connect-xero").classList.remove("connected");
 }
+updateConnectionManager();
 function showConnectError(message) {
   document.getElementById(
     "connect-status-msg"
@@ -963,6 +965,34 @@ async function getMappedAccounts() {
       .map((row) => String(row[0] || "").trim())
       .filter(Boolean);
   });
+}
+function updateConnectionManager() {
+  const qboStatus = document.getElementById("conn-qbo-status");
+  const qboCompany = document.getElementById("conn-qbo-company");
+  const xeroStatus = document.getElementById("conn-xero-status");
+  const xeroCompany = document.getElementById("conn-xero-company");
+  const lastSync = document.getElementById("conn-last-sync");
+
+  if (!qboStatus || !xeroStatus) return;
+
+  qboStatus.textContent = "Disconnected";
+  qboCompany.textContent = "—";
+  xeroStatus.textContent = "Disconnected";
+  xeroCompany.textContent = "—";
+
+  if (state.connected && state.platform === "qbo") {
+    qboStatus.textContent = "Connected";
+    qboCompany.textContent = state.companyName || "Acme Corp (QBO)";
+  }
+
+  if (state.connected && state.platform === "xero") {
+    xeroStatus.textContent = "Connected";
+    xeroCompany.textContent = state.companyName || "Acme Corp (Xero)";
+  }
+
+  if (lastSync) {
+    lastSync.textContent = `Last sync: ${new Date().toLocaleString()}`;
+  }
 }
 function timestamp() {
   return new Date().toLocaleTimeString("en-US", { hour12: false });
