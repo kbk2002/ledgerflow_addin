@@ -21,8 +21,9 @@ Office.onReady((info) => {
     initConnectPanel();
     initPullPanel();
     initValidatePanel();
-    initMappingPanel();
-    initPushPanel();
+initMappingPanel();
+initTemplatePanel();
+initPushPanel();
   }
 });
 
@@ -565,6 +566,98 @@ async function createMappingSheet() {
     }
 
     console.error(err);
+  }
+}
+function initTemplatePanel() {
+  const journalBtn = document.getElementById("btn-journal-template");
+  const payrollBtn = document.getElementById("btn-payroll-template");
+  const vendorBtn = document.getElementById("btn-vendor-template");
+
+  if (journalBtn) {
+    journalBtn.addEventListener("click", () => createTemplate("journal"));
+  }
+
+  if (payrollBtn) {
+    payrollBtn.addEventListener("click", () => createTemplate("payroll"));
+  }
+
+  if (vendorBtn) {
+    vendorBtn.addEventListener("click", () => createTemplate("vendor"));
+  }
+}
+
+async function createTemplate(type) {
+  const status = document.getElementById("template-status");
+
+  const templates = {
+    journal: {
+      sheetName: "JE_Template",
+      headers: ["Date", "Memo", "Account", "Debit", "Credit"],
+      rows: [
+        ["06/10/2026", "Office Supplies", "6000", 100, 0],
+        ["06/10/2026", "Office Supplies", "1000", 0, 100]
+      ]
+    },
+    payroll: {
+      sheetName: "Payroll_Template",
+      headers: ["Employee", "Account", "Amount", "Date"],
+      rows: [
+        ["John Smith", "6200", 1500, "06/10/2026"],
+        ["Jane Doe", "6200", 1750, "06/10/2026"]
+      ]
+    },
+    vendor: {
+      sheetName: "Vendor_Bill_Template",
+      headers: ["Vendor", "Account", "Amount", "Bill Date"],
+      rows: [
+        ["ABC Supplies", "6000", 250, "06/10/2026"],
+        ["XYZ Consulting", "6100", 500, "06/10/2026"]
+      ]
+    }
+  };
+
+  const template = templates[type];
+
+  try {
+    if (status) status.textContent = "Creating template…";
+
+    await Excel.run(async (ctx) => {
+      let sheet = ctx.workbook.worksheets.getItemOrNullObject(template.sheetName);
+      sheet.load("name");
+      await ctx.sync();
+
+      if (sheet.isNullObject) {
+        sheet = ctx.workbook.worksheets.add(template.sheetName);
+      } else {
+        const usedRange = sheet.getUsedRangeOrNullObject();
+        usedRange.load("address");
+        await ctx.sync();
+
+        if (!usedRange.isNullObject) {
+          usedRange.clear();
+        }
+      }
+
+      const endCol = colLetter(template.headers.length);
+
+      const headerRange = sheet.getRange(`A1:${endCol}1`);
+      headerRange.values = [template.headers];
+      headerRange.format.font.bold = true;
+      headerRange.format.fill.color = "#1A1F2E";
+      headerRange.format.font.color = "#FFFFFF";
+
+      const dataRange = sheet.getRange(`A2:${endCol}${template.rows.length + 1}`);
+      dataRange.values = template.rows;
+
+      sheet.getUsedRange().format.autofitColumns();
+      sheet.activate();
+
+      await ctx.sync();
+    });
+
+    if (status) status.textContent = `✓ ${template.sheetName} created.`;
+  } catch (err) {
+    if (status) status.textContent = `Error: ${err.message}`;
   }
 }
 function initPushPanel() {
