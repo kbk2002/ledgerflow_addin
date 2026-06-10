@@ -327,10 +327,12 @@ async function validateJournalEntries(rangeAddr) {
 
     const mappedAccounts = await getMappedAccounts();
 
-    const unmappedAccounts = values.filter((row) => {
-      const account = String(row[2] || "").trim();
-      return account && !mappedAccounts.includes(account);
-    });
+const dataRows = values[0][0] === "Date" ? values.slice(1) : values;
+
+const unmappedAccounts = dataRows.filter((row) => {
+  const account = String(row[2] || "").trim();
+  return account && !mappedAccounts.includes(account);
+});
 
     checks.push({
       name: "Account mapping validation",
@@ -342,8 +344,8 @@ async function validateJournalEntries(rangeAddr) {
     });
 
     if (colCount >= 5) {
-      const totalDebit = values.reduce((sum, row) => sum + (parseFloat(row[3]) || 0), 0);
-      const totalCredit = values.reduce((sum, row) => sum + (parseFloat(row[4]) || 0), 0);
+      const totalDebit = dataRows.reduce((sum, row) => sum + (parseFloat(row[3]) || 0), 0);
+      const totalCredit = dataRows.reduce((sum, row) => sum + (parseFloat(row[4]) || 0), 0);
       const balanced = Math.abs(totalDebit - totalCredit) < 0.005;
 
       checks.push({
