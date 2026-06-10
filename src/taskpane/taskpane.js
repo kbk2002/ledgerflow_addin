@@ -512,9 +512,14 @@ function renderValidationResults(results) {
 }
 function initMappingPanel() {
   const btn = document.getElementById("btn-create-mapping");
+  const saveBtn = document.getElementById("btn-save-mappings");
 
   if (btn) {
     btn.addEventListener("click", createMappingSheet);
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", saveMappingsToCloud);
   }
 }
 
@@ -1027,6 +1032,76 @@ async function savePostingLogToCloud({ platform, transactionType, rowsPosted, st
   } catch (err) {
     appendLog("err", `Cloud log failed: ${err.message}`);
   }
+}
+async function saveMappingsToCloud() {
+
+  try {
+
+    const mappings =
+      await getMappingsFromSheet();
+
+    const res = await fetch(
+      `${API_BASE_URL}/api/mappings`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          mappings
+        })
+      }
+    );
+
+    const payload = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        payload.error ||
+        "Failed to save mappings"
+      );
+    }
+
+    document.getElementById(
+      "mapping-status"
+    ).textContent =
+      `✓ Saved ${payload.count} mappings to Supabase`;
+
+  } catch (err) {
+
+    document.getElementById(
+      "mapping-status"
+    ).textContent =
+      err.message;
+  }
+}
+async function getMappingsFromSheet() {
+
+  return await Excel.run(
+    async (ctx) => {
+
+      const sheet =
+        ctx.workbook.worksheets.getItem(
+          "LedgerFlow_Mappings"
+        );
+
+      const range =
+        sheet.getUsedRange();
+
+      range.load("values");
+
+      await ctx.sync();
+
+      return range.values
+        .slice(1)
+        .map((row) => ({
+          excel_account: row[0],
+          erp_account: row[1],
+          platform: row[2],
+          status: row[3]
+        }));
+    }
+  );
 }
 function timestamp() {
   return new Date().toLocaleTimeString("en-US", { hour12: false });
