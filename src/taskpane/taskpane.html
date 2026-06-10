@@ -224,6 +224,7 @@
     <button class="tab active" data-panel="connect">Connect</button>
     <button class="tab" data-panel="pull">Pull Data</button>
     <button class="tab" data-panel="validate">Validate</button>
+      <button class="tab" data-panel="mapping">Mappings</button>
     <button class="tab" data-panel="push">Post</button>
   </div>
 
@@ -308,7 +309,22 @@
       <button class="btn btn-secondary" id="btn-validate" style="margin-top:12px;">Run Validation</button>
     </div>
   </div>
+<!-- ── Panel: Mappings ────────────────────────── -->
+<div id="panel-mapping" class="panel">
+  <div class="card">
+    <div class="card-title">Account Mapping Engine</div>
 
+    <p class="help" style="margin-bottom:12px;">
+      Create or refresh the LedgerFlow account mapping sheet.
+    </p>
+
+    <button class="btn btn-primary" id="btn-create-mapping">
+      Create Mapping Sheet
+    </button>
+
+    <p class="help" id="mapping-status"></p>
+  </div>
+</div>
   <!-- ── Panel: Post ────────────────────────────────────────────── -->
   <div id="panel-push" class="panel">
     <div class="card">
