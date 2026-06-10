@@ -21,6 +21,7 @@ Office.onReady((info) => {
     initConnectPanel();
     initPullPanel();
     initValidatePanel();
+    initMappingPanel();
     initPushPanel();
   }
 });
@@ -357,7 +358,68 @@ function renderValidationResults(results) {
     )
     .join("");
 }
+function initMappingPanel() {
+  const btn = document.getElementById("btn-create-mapping");
 
+  if (btn) {
+    btn.addEventListener("click", createMappingSheet);
+  }
+}
+
+async function createMappingSheet() {
+  const status = document.getElementById("mapping-status");
+
+  if (status) {
+    status.textContent = "Creating mapping sheet...";
+  }
+
+  try {
+    await Excel.run(async (ctx) => {
+      let sheet = ctx.workbook.worksheets.getItemOrNullObject("LedgerFlow_Mappings");
+
+      sheet.load("name");
+      await ctx.sync();
+
+      if (sheet.isNullObject) {
+        sheet = ctx.workbook.worksheets.add("LedgerFlow_Mappings");
+      }
+
+      sheet.getRange("A1:D1").values = [[
+        "Excel Account",
+        "ERP Account",
+        "Platform",
+        "Status"
+      ]];
+
+      sheet.getRange("A2:D5").values = [
+        ["6000", "Office Expense", "QBO", "Mapped"],
+        ["6100", "Rent Expense", "QBO", "Mapped"],
+        ["6200", "Payroll Expense", "QBO", "Mapped"],
+        ["1000", "Cash", "QBO", "Mapped"]
+      ];
+
+      sheet.getRange("A1:D1").format.font.bold = true;
+
+      sheet.getUsedRange().format.autofitColumns();
+
+      sheet.activate();
+
+      await ctx.sync();
+    });
+
+    if (status) {
+      status.textContent = "✓ Mapping sheet created";
+    }
+
+  } catch (err) {
+
+    if (status) {
+      status.textContent = err.message;
+    }
+
+    console.error(err);
+  }
+}
 function initPushPanel() {
   document.getElementById("btn-push").addEventListener("click", postEntries);
 }
