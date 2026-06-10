@@ -388,14 +388,31 @@ async function postEntries() {
 
     const chunkSize = 10;
 
-    for (let i = 0; i < rows.length; i += chunkSize) {
-      const chunk = rows.slice(i, i + chunkSize);
-      await sleep(400);
+for (let i = 0; i < rows.length; i += chunkSize) {
+  const chunk = rows.slice(i, i + chunkSize);
 
-      const pct = Math.round(((i + chunk.length) / rows.length) * 100);
-      bar.style.width = `${pct}%`;
-      appendLog("ok", `Posted rows ${i + 1}–${i + chunk.length} (${pct}%)`);
-    }
+  const res = await fetch(`${API_BASE_URL}/api/journals`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      platform: state.platform,
+      transactionType: txnType,
+      entries: chunk
+    })
+  });
+
+  const payload = await res.json();
+
+  if (!res.ok) {
+    throw new Error(payload.error || "Posting failed");
+  }
+
+  const pct = Math.round(((i + chunk.length) / rows.length) * 100);
+  bar.style.width = `${pct}%`;
+  appendLog("ok", `Posted ${payload.postedCount} row(s) to ${payload.platform} (${pct}%)`);
+}
 
     appendLog("ok", `✓ All ${rows.length} entries posted successfully.`);
     bar.style.width = "100%";
