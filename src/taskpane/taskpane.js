@@ -417,7 +417,7 @@ for (let i = 0; i < rows.length; i += chunkSize) {
     appendLog("ok", `✓ All ${rows.length} entries posted successfully.`);
     bar.style.width = "100%";
 
-    await markRowsPosted(rangeAddr, rows.length);
+    await markRowsPosted(rangeAddr, rows.length, true);
   } catch (err) {
     appendLog("err", `Failed: ${err.message}`);
   }
@@ -432,11 +432,21 @@ async function readRangeValues(rangeAddr) {
     range.load("values");
     await ctx.sync();
 
-    return range.values.filter((r) => r.some((c) => c !== ""));
+    const rows = range.values.filter((r) => r.some((c) => c !== ""));
+
+    // If first row looks like headers, skip it
+    const firstRow = rows[0] || [];
+    const firstCell = String(firstRow[0] || "").toLowerCase();
+
+    if (firstCell === "date") {
+      return rows.slice(1);
+    }
+
+    return rows;
   });
 }
 
-async function markRowsPosted(rangeAddr, rowCount) {
+async function markRowsPosted(rangeAddr, rowCount, skipHeader = false) {
   await Excel.run(async (ctx) => {
     const { sheetName, address } = parseRangeAddress(rangeAddr);
     const sheet = ctx.workbook.worksheets.getItem(sheetName);
@@ -446,7 +456,8 @@ async function markRowsPosted(rangeAddr, rowCount) {
     await ctx.sync();
 
     const statusCol = range.columnIndex + range.columnCount;
-    const startRow = range.rowIndex;
+    const startRow = skipHeader ? range.rowIndex + 1 : range.rowIndex;
+
     const statusRange = sheet.getRangeByIndexes(startRow, statusCol, rowCount, 1);
 
     statusRange.values = Array(rowCount).fill(["Posted"]);
