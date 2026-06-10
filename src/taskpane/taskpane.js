@@ -304,10 +304,55 @@ async function refreshAllReferenceData() {
       await writeDataToSheet(item.sheetName, payload.data);
     }
 
-    status.textContent = "✓ Refreshed Accounts, Vendors, and Customers.";
+await createDashboard();
+
+status.textContent = "✓ Refreshed Accounts, Vendors, and Customers.";
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
   }
+}
+async function createDashboard() {
+  await Excel.run(async (ctx) => {
+
+    let sheet =
+      ctx.workbook.worksheets.getItemOrNullObject(
+        "LedgerFlow_Dashboard"
+      );
+
+    sheet.load("name");
+    await ctx.sync();
+
+    if (sheet.isNullObject) {
+      sheet = ctx.workbook.worksheets.add(
+        "LedgerFlow_Dashboard"
+      );
+    }
+
+    const dashboard = [
+      ["Metric", "Value"],
+      ["Platform", state.platform || "Unknown"],
+      ["Accounts", 4],
+      ["Vendors", 2],
+      ["Customers", 2],
+      ["Last Refresh", new Date().toLocaleString()]
+    ];
+
+    const range =
+      sheet.getRange(`A1:B${dashboard.length}`);
+
+    range.values = dashboard;
+
+    const header =
+      sheet.getRange("A1:B1");
+
+    header.format.font.bold = true;
+    header.format.fill.color = "#1A1F2E";
+    header.format.font.color = "#FFFFFF";
+
+    sheet.getUsedRange().format.autofitColumns();
+
+    await ctx.sync();
+  });
 }
 function initValidatePanel() {
   document.getElementById("btn-detect-range").addEventListener("click", detectRange);
